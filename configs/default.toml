@@ -1,0 +1,15 @@
+data_dir = "/var/lib/av1-operator"
+
+[log]
+level = "debug"
+
+[envoy]
+bin_path = "bin/av1-envoy"
+port = 18989
+
+[http_server]
+bind = "0.0.0.0"
+port = 30030
+
+[sled]
+path = "sled.db"

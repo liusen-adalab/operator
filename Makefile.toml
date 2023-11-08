@@ -1,0 +1,18 @@
+[config]
+default_to_workspace = false
+
+[tasks.deploy]
+script = { file = "./scripts/deploy.sh" }
+
+[tasks.update-envoy]
+script = { file = "./scripts/update_envoy.sh" }
+
+[tasks.log]
+script = { file = "./scripts/log.sh" }
+
+################# alias #################
+[tasks.d]
+alias = "deploy"
+
+[tasks.ue]
+alias = "update-envoy"

@@ -1,0 +1,11 @@
+[Unit]
+Description=AV1 operator envoy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/av1-envoy
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
