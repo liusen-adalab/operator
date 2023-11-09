@@ -138,7 +138,8 @@ pub mod builder {
 
             // start
             self.run_ssh_cmd("systemctl daemon-reload").await?;
-            self.run_ssh_cmd("systemctl enable av1-envoy.service --now").await?;
+            self.run_ssh_cmd("systemctl start av1-envoy.service").await?;
+            self.run_ssh_cmd("systemctl enable av1-envoy.service").await?;
 
             Ok(())
         }
