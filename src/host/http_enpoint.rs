@@ -5,7 +5,7 @@ use tracing::debug;
 
 use crate::{
     http::{ApiResponse, ApiResult, Pagination},
-    repositry::{self, host},
+    repositry::{self, host, PageList},
 };
 
 use super::{ssh::HostBuilder, Host, HostId};
@@ -74,11 +74,11 @@ pub async fn ping_host(params: Query<HostIdParams>) -> ApiResult<()> {
     ApiResponse::ok(())
 }
 
-pub async fn host_list(params: Json<Pagination>) -> ApiResult<Vec<Host>> {
+pub async fn host_list(params: Json<Pagination>) -> ApiResult<PageList<Host>> {
     let page = params.into_inner();
     let conn = &mut repositry::db_conn().await?;
     let mut hosts = repositry::host::list(page, conn).await?;
-    for host in hosts.iter_mut() {
+    for host in hosts.data.iter_mut() {
         host.ping().await;
     }
 

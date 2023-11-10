@@ -3,15 +3,19 @@ pub extern crate tracing;
 
 #[macro_export]
 macro_rules! async_cmd {
-    ($cmd:literal, $($tts:tt)*) => {{
-        $crate::async_cmd!(@run $cmd, $($tts)*)
+    ($(pwd = $pwd:expr;)? $cmd:literal, $($tts:tt)*) => {{
+        $crate::async_cmd!($(pwd = $pwd;)? @run $cmd, $($tts)*)
     }};
 
     ($cmd:literal $(,)?) => {{
         $crate::async_cmd!(@run $cmd,)
     }};
 
-    (@run $cmd:literal, $($tts:tt)*) => {{
+    ($(pwd = $pwd:expr;)? $cmd:literal $(,)?) => {{
+        $crate::async_cmd!($(pwd = $pwd;)? @run $cmd,)
+    }};
+
+    ($(pwd = $pwd:expr;)? @run $cmd:literal, $($tts:tt)*) => {{
         use std::ffi::OsStr;
         use $crate::macros::async_cmd::async_process::{Command, Stdio};
         use anyhow::{anyhow, Context};
@@ -21,6 +25,7 @@ macro_rules! async_cmd {
         $crate::async_cmd!(@collect args, $($tts)*);
 
         let mut cmd = Command::new($cmd);
+        $(cmd.current_dir($pwd);)?
         cmd.args(&args);
 
         cmd.stdout(Stdio::piped());
@@ -42,7 +47,7 @@ macro_rules! async_cmd {
         } else {
             tracing::debug!(%cmd, concat!("cmd success"));
         }
-        output.stdout
+        output
     }};
 
     (@collect $args:expr $(,)?) => {};

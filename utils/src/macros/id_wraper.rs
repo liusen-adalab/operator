@@ -81,6 +81,7 @@ macro_rules! id_new_type {
             Debug,
             PartialEq,
             PartialOrd,
+            Ord,
             Eq,
             Hash,
             Clone,

@@ -1,0 +1,9 @@
+-- Your SQL goes here
+CREATE TABLE applications (
+    id BIGINT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    git_url TEXT NOT NULL,
+
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

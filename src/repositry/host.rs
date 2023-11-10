@@ -8,7 +8,7 @@ use crate::{
 };
 use diesel::prelude::*;
 
-use super::SqliteConn;
+use super::{PageList, Paginate, SqliteConn};
 
 #[derive(Queryable, Selectable, Identifiable, Debug, Insertable, AsChangeset)]
 #[diesel(table_name = hosts)]
@@ -56,12 +56,11 @@ where
     }
 }
 
-pub async fn list(page: Pagination, conn: &mut SqliteConn) -> Result<Vec<Host>> {
-    let hosts: Vec<HostPo> = hosts::table
+pub async fn list(page: Pagination, conn: &mut SqliteConn) -> Result<PageList<Host>> {
+    let hosts: Vec<(HostPo, i64)> = hosts::table
         .select(HostPo::as_select())
-        .limit(page.limit() as i64)
-        .offset(page.offset() as i64)
+        .paginate(page.offset(), page.limit())
         .load(conn)?;
-
-    Ok(hosts.into_iter().map(Host::try_from).collect::<Result<Vec<_>>>()?)
+    let host_list = PageList::from(hosts);
+    Ok(host_list.try_convert()?)
 }

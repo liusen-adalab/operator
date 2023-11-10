@@ -6,6 +6,7 @@ use tracing::info;
 
 use crate::{repositry::db_conn, settings::get_settings};
 
+mod application;
 mod host;
 mod http;
 mod repositry;
@@ -44,6 +45,7 @@ pub fn http_server() -> anyhow::Result<Server> {
     let server: Server = HttpServer::new(move || {
         App::new()
             .configure(host::http_enpoint::config)
+            .configure(application::http::config)
             .route("/ping", web::get().to(|| async { "pong" }))
     })
     .bind((&*settings.bind, settings.port))?

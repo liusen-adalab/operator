@@ -90,11 +90,12 @@ impl Default for Pagination {
 }
 
 impl Pagination {
-    pub fn offset(&self) -> usize {
-        (self.page.checked_sub(1).unwrap_or_default()) as usize * self.page_size as usize
+    pub fn offset(&self) -> i64 {
+        let o = (self.page.checked_sub(1).unwrap_or_default()) as usize * self.page_size as usize;
+        o as i64
     }
 
-    pub fn limit(&self) -> usize {
-        self.page_size as usize
+    pub fn limit(&self) -> i64 {
+        self.page_size as i64
     }
 }

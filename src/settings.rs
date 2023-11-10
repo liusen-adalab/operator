@@ -7,7 +7,7 @@ use anyhow::{ensure, Context};
 use config::Config;
 use serde::Deserialize;
 
-use crate::repositry::SqlitePoolConfig;
+use crate::{application::AppDir, repositry::SqlitePoolConfig};
 
 #[derive(Deserialize, Debug)]
 pub struct Settings {
@@ -51,6 +51,12 @@ impl DataDir {
         let mut ssh = self.0.join("ssh");
         ssh.push("tmp");
         ssh
+    }
+
+    pub fn app_dir(&self, name: &str) -> AppDir {
+        let mut dir = self.0.join("applications");
+        dir.push(name);
+        dir.into()
     }
 }
 
