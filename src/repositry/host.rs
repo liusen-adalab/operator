@@ -1,52 +1,67 @@
-use std::sync::OnceLock;
+use anyhow::Result;
+use std::{borrow::Cow, net::Ipv4Addr};
 
 use crate::{
     host::{Host, HostId},
     http::Pagination,
-    join_path,
-    settings::get_settings,
+    schema::hosts,
 };
-use anyhow::{Context, Result};
+use diesel::prelude::*;
 
-use super::IdToBytes;
+use super::SqliteConn;
 
-impl IdToBytes for HostId {
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_be_bytes().to_vec()
-    }
+#[derive(Queryable, Selectable, Identifiable, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = hosts)]
+pub struct HostPo<'a> {
+    pub id: HostId,
+    pub name: Cow<'a, str>,
+    pub ip: Cow<'a, str>,
 }
 
-pub async fn save(host: &Host) -> Result<()> {
-    let bytes = bincode::serialize(&host)?;
-    db().insert(host.id.to_bytes(), bytes)?;
+pub async fn save(host: &Host, conn: &mut SqliteConn) -> Result<()> {
+    let host = HostPo::from(host);
+    diesel::insert_into(hosts::table).values(host).execute(conn)?;
     Ok(())
 }
 
-pub async fn get(id: HostId) -> Result<Option<Host>> {
-    let bytes = db().get(id.to_bytes()).context("query db")?;
-    let host = match bytes {
-        Some(bytes) => bincode::deserialize(&bytes).context("deserialize host")?,
-        None => return Ok(None),
-    };
-    Ok(Some(host))
+pub async fn update(host: &Host, conn: &mut SqliteConn) -> Result<()> {
+    let host = HostPo::from(host);
+    diesel::update(hosts::table).filter(hosts::id.eq(host.id)).set(host).execute(conn)?;
+    Ok(())
 }
 
-pub async fn list(page: Pagination) -> Result<Vec<Host>> {
-    let mut hosts = Vec::new();
-    for kv in db().iter().skip(page.offset()).take(page.limit()) {
-        let (_key, value) = kv?;
-        let host = bincode::deserialize(&value)?;
-        hosts.push(host);
+#[derive(derive_more::From)]
+pub enum HostIdent {
+    Id(HostId),
+    Ip(Ipv4Addr),
+}
+
+pub async fn get<T>(id: T, conn: &mut SqliteConn) -> Result<Option<Host>>
+where
+    HostIdent: From<T>,
+{
+    let id = HostIdent::from(id);
+    match id {
+        HostIdent::Id(id) => {
+            let host: HostPo = hosts::table.select(HostPo::as_select()).find(id).first(conn)?;
+            Ok(Some(Host::try_from(host)?))
+        }
+        HostIdent::Ip(ip) => {
+            let host: HostPo = hosts::table
+                .select(HostPo::as_select())
+                .filter(hosts::ip.eq(ip.to_string()))
+                .first(conn)?;
+            Ok(Some(Host::try_from(host)?))
+        }
     }
-    Ok(hosts)
 }
 
-static DB: OnceLock<sled::Db> = OnceLock::new();
+pub async fn list(page: Pagination, conn: &mut SqliteConn) -> Result<Vec<Host>> {
+    let hosts: Vec<HostPo> = hosts::table
+        .select(HostPo::as_select())
+        .limit(page.limit() as i64)
+        .offset(page.offset() as i64)
+        .load(conn)?;
 
-fn db() -> &'static sled::Db {
-    DB.get_or_init(|| {
-        let settings = get_settings();
-        let path = join_path!(settings.data_dir, &settings.sled.path);
-        sled::open(path).unwrap()
-    })
+    Ok(hosts.into_iter().map(Host::try_from).collect::<Result<Vec<_>>>()?)
 }

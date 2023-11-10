@@ -3,19 +3,55 @@ use std::{
     sync::OnceLock,
 };
 
-use anyhow::Context;
+use anyhow::{ensure, Context};
 use config::Config;
 use serde::Deserialize;
 
-use crate::repositry::SledCfg;
+use crate::repositry::SqlitePoolConfig;
 
 #[derive(Deserialize, Debug)]
 pub struct Settings {
+    pub data_dir: DataDir,
+
     pub log: utils::logger::Config,
-    pub data_dir: PathBuf,
     pub envoy: EnvoyCfg,
     pub http_server: HttpServerCfg,
-    pub sled: SledCfg,
+    pub sqlite: SqlitePoolConfig,
+}
+
+#[derive(Deserialize, Debug, derive_more::Deref, derive_more::AsRef)]
+pub struct DataDir(PathBuf);
+
+impl DataDir {
+    pub fn sqlite_path(&self) -> PathBuf {
+        self.0.join("sqlite.db")
+    }
+
+    pub fn envoy_dir(&self) -> PathBuf {
+        self.0.join("bin")
+    }
+
+    pub fn envoy_bin_path(&self) -> PathBuf {
+        self.envoy_dir().join("av1-envoy")
+    }
+
+    pub fn ssh_global_dir(&self) -> PathBuf {
+        let mut ssh = self.0.join("ssh");
+        ssh.push("global");
+        ssh
+    }
+
+    pub fn ssh_key_dir(&self) -> PathBuf {
+        let mut ssh = self.0.join("ssh");
+        ssh.push("keys");
+        ssh
+    }
+
+    pub fn ssh_key_tmp_dir(&self) -> PathBuf {
+        let mut ssh = self.0.join("ssh");
+        ssh.push("tmp");
+        ssh
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -67,6 +103,8 @@ pub fn load_settings() -> anyhow::Result<&'static Settings> {
         .context("cannot load config")?
         .try_deserialize()
         .context("wrong config format")?;
+
+    ensure!(settings.data_dir.is_absolute(), "data_dir must be absolute path");
 
     Ok(SETTINGS.get_or_init(|| settings))
 }

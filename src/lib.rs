@@ -4,30 +4,36 @@ use actix_web::{dev::Server, web, App, HttpServer};
 use anyhow::Context;
 use tracing::info;
 
-use crate::settings::get_settings;
+use crate::{repositry::db_conn, settings::get_settings};
 
-pub mod host;
-pub mod http;
-pub mod repositry;
-pub mod settings;
+mod host;
+mod http;
+mod repositry;
+mod schema;
+mod settings;
 
 pub async fn init_global() -> anyhow::Result<()> {
-    settings::load_settings().context("load settings")?;
+    let settings = settings::load_settings().context("load settings")?;
     utils::logger::init(&get_settings().log).context("init logger")?;
-    init_work_dir()?;
+    repositry::init(&settings.sqlite).context("init sqlite pool")?;
+    init_work_dir().context("init data dir")?;
+
+    // Run migrations
+    use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+    const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+    let conn = &mut db_conn().await?;
+    conn.run_pending_migrations(MIGRATIONS).map_err(|e| anyhow::anyhow!(e))?;
 
     Ok(())
 }
 
 fn init_work_dir() -> anyhow::Result<()> {
     let settings = get_settings();
-    fs::create_dir_all(&settings.data_dir).context("create data dir")?;
-    let envoy_path = settings.data_dir.join(&settings.envoy.bin_path);
-    let envoy_dir = envoy_path.parent().unwrap();
-    fs::create_dir_all(envoy_dir).context("create envoy dir")?;
+    let data_dir = &settings.data_dir;
+    fs::create_dir_all(&**data_dir).context("create data dir")?;
+    fs::create_dir_all(data_dir.envoy_dir()).context("create envoy dir")?;
 
-    host::init_dirs()?;
-
+    host::ssh::init_dirs()?;
     Ok(())
 }
 
@@ -37,7 +43,7 @@ pub fn http_server() -> anyhow::Result<Server> {
 
     let server: Server = HttpServer::new(move || {
         App::new()
-            .configure(host::config)
+            .configure(host::http_enpoint::config)
             .route("/ping", web::get().to(|| async { "pong" }))
     })
     .bind((&*settings.bind, settings.port))?

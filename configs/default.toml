@@ -11,5 +11,7 @@ port = 18989
 bind = "0.0.0.0"
 port = 30030
 
-[sled]
-path = "sled.db"
+
+[sqlite]
+max_conn = 10
+min_conn = 1

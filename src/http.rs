@@ -21,6 +21,7 @@ impl<T> ApiResponse<T> {
     }
 }
 
+#[allow(dead_code)]
 impl ApiResponse<()> {
     pub fn empty_ok() -> Self {
         ApiResponse {

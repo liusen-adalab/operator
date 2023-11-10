@@ -1,6 +1,7 @@
 pub extern crate derive_more;
 pub extern crate flaken;
 
+#[cfg(not(feature = "diesel"))]
 #[macro_export]
 macro_rules! id_new_type {
     ($type_name:ident) => {
@@ -19,6 +20,15 @@ macro_rules! id_new_type {
         )]
         pub struct $type_name(pub i64);
 
+        $crate::next_id!($type_name);
+        $crate::serde_id!($type_name);
+        $crate::diesel_new_type!($type_name, ::diesel::sql_types::BigInt);
+    };
+}
+
+#[macro_export]
+macro_rules! next_id {
+    ($type_name:ident) => {
         impl $type_name {
             pub fn next_id() -> Self {
                 use flaken::Flaken;
@@ -35,7 +45,12 @@ macro_rules! id_new_type {
                 Self(lock.next() as i64)
             }
         }
+    };
+}
 
+#[macro_export]
+macro_rules! serde_id {
+    ($type_name:ident) => {
         impl serde::Serialize for $type_name {
             fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
             where
@@ -53,21 +68,35 @@ macro_rules! id_new_type {
                 let id = String::deserialize(deserializer)?;
                 let id = id.parse().map_err(serde::de::Error::custom)?;
                 Ok(Self(id))
-                // #[derive(serde::Deserialize)]
-                // #[serde(untagged)]
-                // enum StringOrInt {
-                //     String(String),
-                //     Int(i64),
-                // }
-                // let id = StringOrInt::deserialize(deserializer)?;
-                // match id {
-                //     StringOrInt::String(id) => {
-                //         let id = id.parse().map_err(serde::de::Error::custom)?;
-                //         Ok(Self(id))
-                //     }
-                //     StringOrInt::Int(id) => Ok(Self(id)),
-                // }
             }
         }
+    };
+}
+
+#[cfg(feature = "diesel")]
+#[macro_export]
+macro_rules! id_new_type {
+    ($type_name:ident) => {
+        #[derive(
+            Debug,
+            PartialEq,
+            PartialOrd,
+            Eq,
+            Hash,
+            Clone,
+            Copy,
+            $crate::macros::id_wraper::derive_more::From,
+            $crate::macros::id_wraper::derive_more::Display,
+            $crate::macros::id_wraper::derive_more::FromStr,
+            $crate::macros::id_wraper::derive_more::Into,
+            ::diesel::AsExpression,
+            ::diesel::FromSqlRow,
+        )]
+        #[diesel(sql_type = ::diesel::sql_types::BigInt)]
+        pub struct $type_name(pub i64);
+
+        $crate::next_id!($type_name);
+        $crate::serde_id!($type_name);
+        $crate::diesel_new_type!($type_name, ::diesel::sql_types::BigInt);
     };
 }

@@ -1,3 +1,15 @@
+#[cfg(not(feature = "diesel"))]
+#[macro_export]
+macro_rules! diesel_new_type {
+    ($($tt:tt)*) => {};
+}
+#[cfg(not(feature = "diesel"))]
+#[macro_export]
+macro_rules! diesel_enum {
+    ($($tt:tt)*) => {};
+}
+
+#[cfg(feature = "diesel")]
 #[macro_export]
 macro_rules! diesel_new_type {
     ($type:ty, $pg_type:ty) => {
@@ -5,9 +17,10 @@ macro_rules! diesel_new_type {
             use diesel::{
                 backend::Backend,
                 deserialize::{self, FromSql},
-                pg::Pg,
                 serialize::{self, Output, ToSql},
             };
+            type Pg = diesel::sqlite::Sqlite;
+
             impl ToSql<$pg_type, Pg> for $type {
                 fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
                     ToSql::<$pg_type, Pg>::to_sql(&self.0, out)
@@ -28,9 +41,10 @@ macro_rules! diesel_new_type {
             use diesel::{
                 backend::Backend,
                 deserialize::{self, FromSql},
-                pg::Pg,
                 serialize::{self, Output, ToSql},
             };
+
+            type Pg = diesel::pg::Pg;
 
             impl ToSql<$pg_type, Pg> for $type {
                 fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
@@ -49,6 +63,7 @@ macro_rules! diesel_new_type {
     };
 }
 
+#[cfg(feature = "diesel")]
 #[macro_export]
 macro_rules! diesel_enum {
     ($enum:ty, max = $max:expr) => {
